@@ -539,25 +539,6 @@ function submitForm() {
   render();
 }
 
-function runAI() {
-  const name = document.getElementById('f-name').value.trim();
-  const type = document.getElementById('f-type').value;
-  if (!name) { document.getElementById('f-name').focus(); UI.toast('Enter a tea name first', 'error'); return; }
-  UI.aiSuggest({
-    name, type, btnId: 'ai-btn',
-    onResult: (json) => {
-      const set = (id, val) => { if (val && !document.getElementById(id).value) document.getElementById(id).value = val; };
-      set('f-temp', json.temp_f);
-      set('f-steep', json.steep_time);
-      set('f-notes', json.notes);
-      set('f-origin', json.origin);
-      if (json.tags && formTags) {
-        const cur = formTags.getTags();
-        const merged = [...new Set([...cur, ...(json.tags || [])])];
-        formTags.setTags(merged);
-      }
-    }
-  });
 }
 
 // ── EDIT MODAL ────────────────────────────────────────────────────────────────
