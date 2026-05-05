@@ -52,12 +52,6 @@ That URL is shareable — anyone with it can view your collection (read-only fro
 - Use **Export → JSON** regularly as a backup
 - Use **Import** to restore from a backup or move to a new browser/device
 
-## AI Suggestions
-
-The ✦ AI Suggest button uses the Anthropic Claude API (claude-sonnet) to fill in brew temperature, steep time, tasting notes, and tags based on the tea's name and type. This requires an internet connection and uses the Anthropic API key baked into the Claude.ai environment.
-
-If you're hosting this yourself outside of Claude.ai, you'll need to add your own API key to the fetch call in `js/ui.js`.
-
 ## Customisation Tips
 
 - **Change the colour palette** — edit CSS variables in `css/styles.css` under `:root`
