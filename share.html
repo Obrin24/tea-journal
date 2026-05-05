@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tea Journal — Share</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .share-controls {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow);
+    }
+    .share-controls h3 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 400; margin-bottom: 1rem; }
+    .options-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+    .option-toggle {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.83rem; cursor: pointer; color: var(--ink-mid);
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      background: var(--cream);
+      transition: all 0.15s;
+    }
+    .option-toggle:hover { border-color: var(--gold); }
+    .option-toggle input { accent-color: var(--gold); }
+    .share-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* Preview */
+    .preview-wrapper {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+    .preview-header {
+      background: var(--ink);
+      padding: 2rem 2.5rem;
+      border-bottom: 3px solid var(--gold);
+    }
+    .preview-header h1 { font-family: var(--font-display); font-size: 2rem; font-weight: 300; color: var(--cream); margin-bottom: 4px; }
+    .preview-header p { font-size: 0.82rem; color: var(--gold-l); }
+    .preview-body { padding: 2rem 2.5rem; }
+
+    .share-section { margin-bottom: 2.5rem; }
+    .share-section-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 400;
+      color: var(--ink-mid);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 1.25rem;
+    }
+    .share-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 12px; }
+    .share-tea-card {
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 12px;
+      background: #fff;
+      break-inside: avoid;
+    }
+    .share-tea-card img { width: 100%; height: 70px; object-fit: cover; border-radius: var(--r-sm); margin-bottom: 8px; }
+    .share-tea-name { font-family: var(--font-display); font-size: 0.95rem; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+    .share-tea-sub { font-size: 0.72rem; color: var(--ink-faint); margin-bottom: 5px; }
+    .share-tea-notes { font-size: 0.75rem; color: var(--ink-mid); font-style: italic; margin-top: 4px; }
+    .share-tea-meta { font-size: 0.7rem; color: var(--ink-faint); margin-top: 4px; }
+    .share-tea-link { font-size: 0.7rem; color: var(--gold); text-decoration: none; }
+    .share-tea-link:hover { text-decoration: underline; }
+
+    /* Print styles */
+    @media print {
+      .no-print, .toolbar, nav { display: none !important; }
+      .preview-wrapper { box-shadow: none; border: none; }
+      .preview-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .share-tea-card { break-inside: avoid; border: 1px solid #ddd; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <div class="page-header no-print">
+    <h1>Share Your Collection</h1>
+    <p>Customise what to include, then print or save as PDF</p>
+  </div>
+
+  <div class="page-body">
+
+    <!-- Controls -->
+    <div class="share-controls no-print">
+      <h3>Options</h3>
+      <div class="options-grid">
+        <label class="option-toggle"><input type="checkbox" id="opt-tried" checked onchange="renderPreview()"> Tried teas</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-inventory" checked onchange="renderPreview()"> Inventory</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-wishlist" checked onchange="renderPreview()"> Wishlist</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-notes" checked onchange="renderPreview()"> Tasting notes</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-brew" onchange="renderPreview()"> Brew details</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-tags" checked onchange="renderPreview()"> Tags</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-price" onchange="renderPreview()"> Prices</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-source" checked onchange="renderPreview()"> Source / store</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-photos" checked onchange="renderPreview()"> Photos</label>
+        <label class="option-toggle"><input type="checkbox" id="opt-ratings" checked onchange="renderPreview()"> Ratings</label>
+      </div>
+      <div class="share-actions">
+        <button class="btn btn-gold" onclick="window.print()">🖨 Print / Save as PDF</button>
+        <button class="btn" onclick="UI.exportCSV()">↓ Export CSV</button>
+        <button class="btn" onclick="UI.exportJSON()">↓ Export JSON</button>
+        <button class="btn" onclick="copyShareText()">⎘ Copy as text</button>
+      </div>
+    </div>
+
+    <!-- Live preview (also what prints) -->
+    <div class="preview-wrapper" id="preview-wrapper">
+      <div class="preview-header">
+        <h1>🍵 Tea Journal</h1>
+        <p id="preview-subtitle">Generated —</p>
+      </div>
+      <div class="preview-body" id="preview-body"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/layout.js"></script>
+<script>
+Layout.init();
+
+window.addEventListener('DOMContentLoaded', renderPreview);
+
+function opt(id) { return document.getElementById(id)?.checked; }
+
+function renderPreview() {
+  const teas = Store.getAll();
+  const groups = [
+    { key: 'tried',     label: 'Tried & Reviewed',   show: opt('opt-tried') },
+    { key: 'inventory', label: 'In My Inventory',     show: opt('opt-inventory') },
+    { key: 'wishlist',  label: 'On My Wishlist',      show: opt('opt-wishlist') },
+  ].filter(g => g.show);
+
+  document.getElementById('preview-subtitle').textContent =
+    `Generated ${new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}`;
+
+  const body = document.getElementById('preview-body');
+  if (!groups.length) { body.innerHTML = '<p style="color:var(--ink-faint);text-align:center;padding:2rem;">Select at least one group to preview.</p>'; return; }
+
+  body.innerHTML = groups.map(group => {
+    const groupTeas = teas.filter(t => t.status === group.key);
+    if (!groupTeas.length) return '';
+    return `
+      <div class="share-section">
+        <div class="share-section-title">${group.label} (${groupTeas.length})</div>
+        <div class="share-card-grid">
+          ${groupTeas.map(t => shareCardHtml(t)).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function shareCardHtml(t) {
+  const showNotes  = opt('opt-notes');
+  const showBrew   = opt('opt-brew');
+  const showTags   = opt('opt-tags');
+  const showPrice  = opt('opt-price');
+  const showSource = opt('opt-source');
+  const showPhotos = opt('opt-photos');
+  const showRating = opt('opt-ratings');
+
+  const tagsHtml = showTags && (t.tags || []).length
+    ? `<div class="tags-list" style="margin-top:5px;">${t.tags.map(tag => `<span class="tag">${Utils.esc(tag)}</span>`).join('')}</div>`
+    : '';
+
+  const sourceHtml = showSource && (t.url || t.where)
+    ? t.url
+      ? `<div class="share-tea-meta"><a class="share-tea-link" href="${Utils.esc(t.url)}">${Utils.esc(t.where || t.url)}</a></div>`
+      : `<div class="share-tea-meta">${Utils.esc(t.where)}</div>`
+    : '';
+
+  return `
+    <div class="share-tea-card">
+      ${showPhotos && t.photo ? `<img src="${t.photo}" alt="${Utils.esc(t.name)}">` : ''}
+      <div class="share-tea-name">${Utils.esc(t.name)}</div>
+      <div class="share-tea-sub">
+        <span class="badge ${Utils.badgeClass(t.type)}">${t.type}</span>
+        ${t.origin ? ' · ' + Utils.esc(t.origin) : ''}
+      </div>
+      ${showRating && t.rating ? `<div style="margin-top:4px;font-size:0.82rem;">${Utils.starsHtml(t.rating)}</div>` : ''}
+      ${showNotes && t.notes ? `<div class="share-tea-notes">${Utils.esc(t.notes)}</div>` : ''}
+      ${showBrew && (t.temp || t.steep) ? `<div class="share-tea-meta">${t.temp ? t.temp + '°F' : ''} ${t.steep ? '· ' + t.steep : ''}</div>` : ''}
+      ${showPrice && t.price ? `<div class="share-tea-meta">$${Number(t.price).toFixed(2)}</div>` : ''}
+      ${tagsHtml}
+      ${sourceHtml}
+    </div>`;
+}
+
+function copyShareText() {
+  const teas = Store.getAll();
+  const lines = ['My Tea Collection', '=' .repeat(40), ''];
+  ['tried','inventory','wishlist'].forEach(status => {
+    const group = teas.filter(t => t.status === status);
+    if (!group.length) return;
+    const label = { tried: 'Tried', inventory: 'In Inventory', wishlist: 'Wishlist' }[status];
+    lines.push(label.toUpperCase(), '-'.repeat(label.length), '');
+    group.forEach(t => {
+      lines.push(`• ${t.name} (${t.type})`);
+      if (t.origin) lines.push(`  Origin: ${t.origin}`);
+      if (t.rating) lines.push(`  Rating: ${'★'.repeat(t.rating)}${'☆'.repeat(5-t.rating)}`);
+      if (t.notes)  lines.push(`  Notes: ${t.notes}`);
+      if (t.where)  lines.push(`  From: ${t.where}`);
+      lines.push('');
+    });
+  });
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => UI.toast('Copied to clipboard ✓', 'success'))
+    .catch(() => UI.toast('Copy failed — try manually', 'error'));
+}
+</script>
+</body>
+</html>

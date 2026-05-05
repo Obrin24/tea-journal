@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tea Journal — Collection</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .view-toggle { display: flex; border: 1px solid var(--border-d); border-radius: var(--r-sm); overflow: hidden; }
+    .view-btn { padding: 5px 13px; font-size: 0.76rem; font-family: var(--font-body); font-weight: 500; background: var(--surface); border: none; cursor: pointer; color: var(--ink-soft); transition: all 0.15s; }
+    .view-btn.active { background: var(--ink); color: var(--cream); }
+
+    /* Add panel */
+    .add-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    .add-panel.open { display: block; animation: panel-in 0.2s ease; }
+    @keyframes panel-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .panel-header h2 { font-family: var(--font-display); font-size: 1.6rem; font-weight: 400; }
+    .panel-hint { font-size: 0.75rem; color: var(--ink-faint); font-style: italic; }
+    .panel-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 1.25rem; flex-wrap: wrap; gap: 10px; }
+    .panel-footer-right { display: flex; gap: 8px; }
+
+    /* Brew log inside modal */
+    .brew-form-section { background: var(--cream-d); border-radius: var(--r-md); padding: 1.1rem; margin-top: 1rem; }
+    .brew-form-section h4 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+<!-- MAIN CONTENT (nav injected by JS) -->
+<div class="page">
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="view-toggle">
+      <button class="view-btn active" id="btn-cards" onclick="setView('cards')">Cards</button>
+      <button class="view-btn" id="btn-table" onclick="setView('table')">Table</button>
+    </div>
+    <div class="filter-chips" id="filter-chips">
+      <span class="chip active" data-filter="all">All</span>
+      <span class="chip sage" data-filter="tried">Tried</span>
+      <span class="chip" data-filter="inventory">Inventory</span>
+      <span class="chip wish" data-filter="wishlist">✦ Wishlist</span>
+      <span class="chip" data-filter="Green">Green</span>
+      <span class="chip" data-filter="Black">Black</span>
+      <span class="chip" data-filter="White">White</span>
+      <span class="chip" data-filter="Oolong">Oolong</span>
+      <span class="chip" data-filter="Herbal">Herbal</span>
+      <span class="chip" data-filter="Pu-erh">Pu-erh</span>
+      <span class="chip" data-filter="Yellow">Yellow</span>
+      <span class="chip" data-filter="Other">Other</span>
+    </div>
+    <div class="toolbar-right">
+      <div class="search-box">
+        <span class="icon">⌕</span>
+        <input type="text" id="search-input" placeholder="Search…" oninput="render()">
+      </div>
+      <select class="sort-select" id="sort-select" onchange="render()">
+        <option value="added-desc">Newest first</option>
+        <option value="added-asc">Oldest first</option>
+        <option value="name-asc">Name A–Z</option>
+        <option value="rating-desc">Highest rated</option>
+        <option value="qty-asc">Low stock</option>
+      </select>
+      <button class="btn btn-gold" onclick="toggleAddPanel()">＋ Add Tea</button>
+      <button class="btn" onclick="UI.exportCSV()">↓ CSV</button>
+      <button class="btn" onclick="UI.exportJSON()">↓ JSON</button>
+      <button class="btn" onclick="openImport()">↑ Import</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <!-- Add / Edit Panel -->
+    <div class="add-panel" id="add-panel">
+      <div class="panel-header">
+        <h2 id="panel-title">Add a Tea</h2>
+        <span class="panel-hint">✦ Enter name &amp; type, then let AI fill in brew details</span>
+      </div>
+
+      <div class="form-section">
+        <h4>Basic Info</h4>
+        <div class="form-grid form-grid-auto">
+          <div class="field">
+            <label>Tea Name *</label>
+            <input id="f-name" placeholder="e.g. Silver Needle">
+          </div>
+          <div class="field">
+            <label>Type</label>
+            <select id="f-type">
+              <option>Green</option><option>Black</option><option>White</option>
+              <option>Oolong</option><option>Pu-erh</option><option>Herbal</option>
+              <option>Yellow</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Origin / Region</label>
+            <input id="f-origin" placeholder="Fujian, China">
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <select id="f-status">
+              <option value="inventory">In inventory (not tried yet)</option>
+              <option value="tried">Tried it</option>
+              <option value="wishlist">Wishlist — want to try</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h4>Inventory</h4>
+        <div class="form-grid form-grid-auto">
+          <div class="field">
+            <label>Quantity</label>
+            <input id="f-qty" type="number" placeholder="50">
+          </div>
+          <div class="field">
+            <label>Unit</label>
+            <select id="f-unit">
+              <option>g</option><option>oz</option><option>bags</option><option>sachets</option><option>cakes</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Where Bought</label>
+            <input id="f-where" placeholder="Harney &amp; Sons">
+          </div>
+          <div class="field">
+            <label>Product URL</label>
+            <input id="f-url" type="url" placeholder="https://…">
+          </div>
+          <div class="field">
+            <label>Price Paid ($)</label>
+            <input id="f-price" type="number" step="0.01" placeholder="12.00">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h4>Brew</h4>
+        <div class="form-grid form-grid-auto">
+          <div class="field">
+            <label>Brew Temp (°F)</label>
+            <input id="f-temp" type="number" placeholder="175">
+          </div>
+          <div class="field">
+            <label>Steep Time</label>
+            <input id="f-steep" placeholder="3 min">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h4>Tasting</h4>
+        <div class="form-grid form-grid-2">
+          <div class="field">
+            <label>Tasting Notes</label>
+            <textarea id="f-notes" placeholder="Floral, honey, smooth finish…"></textarea>
+          </div>
+          <div>
+            <div class="field" style="margin-bottom: 12px;">
+              <label>Rating</label>
+              <div id="f-stars-wrap"></div>
+              <p style="font-size:0.68rem;color:var(--ink-faint);margin-top:4px;">Leave blank for inventory or wishlist</p>
+            </div>
+            <div class="field">
+              <label>Photo</label>
+              <div id="f-photo-wrap"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h4>Tags</h4>
+        <div id="f-tags-wrap"></div>
+        <p style="font-size:0.68rem;color:var(--ink-faint);margin-top:5px;">e.g. morning, caffeine-free, gift — press Enter to add</p>
+      </div>
+
+      <div class="panel-footer">
+        <button class="ai-btn" id="ai-btn" onclick="runAI()">
+          <span class="ai-icon">✦</span>
+          <span class="ai-spinner">↻</span>
+          AI Suggest Brew &amp; Notes
+        </button>
+        <div class="panel-footer-right">
+          <button class="btn" onclick="cancelForm()">Cancel</button>
+          <button class="btn btn-gold" id="form-submit" onclick="submitForm()">Add to Journal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD VIEW -->
+    <div id="view-cards">
+      <div class="card-grid" id="card-grid"></div>
+    </div>
+
+    <!-- TABLE VIEW -->
+    <div id="view-table" style="display:none;">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('name')">Name</th>
+              <th>Type</th>
+              <th>Origin</th>
+              <th>Status</th>
+              <th onclick="sortBy('qty')">Qty</th>
+              <th onclick="sortBy('rating')">Rating</th>
+              <th>Temp</th>
+              <th>Steep</th>
+              <th>Notes</th>
+              <th>Tags</th>
+              <th>Source</th>
+              <th onclick="sortBy('price')">Price</th>
+              <th onclick="sortBy('added')">Added</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BREW LOG MODAL -->
+<div class="overlay" id="brew-overlay">
+  <div class="modal wide">
+    <button class="modal-close" onclick="UI.closeModal('brew-overlay')">✕</button>
+    <h3 id="brew-modal-title">Brew Log</h3>
+    <div class="brew-entries" id="brew-entries-list"></div>
+    <div class="brew-form-section">
+      <h4>Log a session</h4>
+      <div class="form-grid form-grid-3" style="margin-bottom:10px;">
+        <div class="field"><label>Date</label><input type="date" id="bl-date"></div>
+        <div class="field"><label>Temp (°F)</label><input type="number" id="bl-temp"></div>
+        <div class="field"><label>Steep Time</label><input id="bl-steep"></div>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Session Notes</label>
+        <textarea id="bl-notes" style="min-height:54px;" placeholder="How was it this time?"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Session Rating</label>
+        <div id="bl-stars-wrap"></div>
+      </div>
+      <button class="btn btn-sage" onclick="submitBrewEntry()">Log Session</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="UI.closeModal('brew-overlay')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="edit-overlay">
+  <div class="modal wide">
+    <button class="modal-close" onclick="UI.closeModal('edit-overlay')">✕</button>
+    <h3>Edit Tea</h3>
+    <div class="form-grid form-grid-2" style="margin-bottom:12px;">
+      <div class="field"><label>Name</label><input id="e-name"></div>
+      <div class="field"><label>Type</label>
+        <select id="e-type"><option>Green</option><option>Black</option><option>White</option><option>Oolong</option><option>Pu-erh</option><option>Herbal</option><option>Yellow</option><option>Other</option></select>
+      </div>
+      <div class="field"><label>Origin</label><input id="e-origin"></div>
+      <div class="field"><label>Status</label>
+        <select id="e-status"><option value="inventory">Inventory</option><option value="tried">Tried</option><option value="wishlist">Wishlist</option></select>
+      </div>
+      <div class="field"><label>Qty</label><input type="number" id="e-qty"></div>
+      <div class="field"><label>Unit</label><select id="e-unit"><option>g</option><option>oz</option><option>bags</option><option>sachets</option><option>cakes</option></select></div>
+      <div class="field"><label>Brew Temp (°F)</label><input type="number" id="e-temp"></div>
+      <div class="field"><label>Steep Time</label><input id="e-steep"></div>
+      <div class="field"><label>Where Bought</label><input id="e-where"></div>
+      <div class="field"><label>Product URL</label><input type="url" id="e-url"></div>
+      <div class="field"><label>Price ($)</label><input type="number" step="0.01" id="e-price"></div>
+      <div class="field"><label>Rating</label><div id="e-stars-wrap"></div></div>
+    </div>
+    <div class="field" style="margin-bottom:12px;"><label>Tasting Notes</label><textarea id="e-notes"></textarea></div>
+    <div class="field" style="margin-bottom:16px;"><label>Tags</label><div id="e-tags-wrap"></div></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="UI.closeModal('edit-overlay')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="overlay" id="import-overlay">
+  <div class="modal narrow">
+    <button class="modal-close" onclick="UI.closeModal('import-overlay')">✕</button>
+    <h3>Import Backup</h3>
+    <p style="font-size:0.85rem;color:var(--ink-soft);margin-bottom:1rem;">Select a JSON backup file. Teas will be merged — existing entries won't be duplicated.</p>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(this)">
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="document.getElementById('import-file').click()">Choose File</button>
+      <button class="btn" onclick="UI.closeModal('import-overlay')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/layout.js"></script>
+<script>
+Layout.init();
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let currentView   = 'cards';
+let currentFilter = 'all';
+let editingId     = null;
+let brewTeaId     = null;
+let formStars, brewStars, editStars, formTags, editTags, formPhoto;
+
+// ── INIT COMPONENTS ──────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  formStars = UI.starsInput('f-stars-wrap');
+  brewStars = UI.starsInput('bl-stars-wrap');
+  editStars = UI.starsInput('e-stars-wrap');
+  formTags  = UI.tagInput('f-tags-wrap');
+  formPhoto = UI.photoUpload('f-photo-wrap');
+  render();
+
+  // Filter chips
+  document.getElementById('filter-chips').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    currentFilter = chip.dataset.filter;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    render();
+  });
+});
+
+// ── VIEW ─────────────────────────────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  document.getElementById('view-cards').style.display = v === 'cards' ? '' : 'none';
+  document.getElementById('view-table').style.display = v === 'table' ? '' : 'none';
+  document.getElementById('btn-cards').classList.toggle('active', v === 'cards');
+  document.getElementById('btn-table').classList.toggle('active', v === 'table');
+  render();
+}
+
+function sortBy(key) {
+  const sel = document.getElementById('sort-select');
+  const cur = sel.value;
+  const isAsc = cur === key + '-asc';
+  sel.value = isAsc ? key + '-desc' : key + '-asc';
+  render();
+}
+
+// ── DATA FILTERING ────────────────────────────────────────────────────────────
+function getVisible() {
+  const q    = document.getElementById('search-input').value.trim().toLowerCase();
+  const sort = document.getElementById('sort-select').value;
+  const STATUSES = ['tried', 'inventory', 'wishlist'];
+  const TYPES    = ['Green','Black','White','Oolong','Pu-erh','Herbal','Yellow','Other'];
+
+  let list = Store.getAll();
+
+  if (STATUSES.includes(currentFilter)) list = list.filter(t => t.status === currentFilter);
+  else if (TYPES.includes(currentFilter)) list = list.filter(t => t.type === currentFilter);
+
+  if (q) list = list.filter(t =>
+    [t.name, t.origin, t.type, t.notes, t.where, ...(t.tags || [])].join(' ').toLowerCase().includes(q)
+  );
+
+  list.sort((a, b) => {
+    if (sort === 'name-asc')    return a.name.localeCompare(b.name);
+    if (sort === 'rating-desc') return (b.rating || 0) - (a.rating || 0);
+    if (sort === 'qty-asc')     return (a.qty === '' ? 9999 : +a.qty) - (b.qty === '' ? 9999 : +b.qty);
+    if (sort === 'added-asc')   return (a.added || '').localeCompare(b.added || '');
+    return (b.added || '').localeCompare(a.added || ''); // newest first
+  });
+
+  return list;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render() {
+  const list = getVisible();
+  currentView === 'cards' ? renderCards(list) : renderTable(list);
+}
+
+function sourceLink(t) {
+  if (t.url) return `<a class="card-link" href="${Utils.esc(t.url)}" target="_blank" rel="noopener">↗ ${Utils.esc(t.where || 'Product page')}</a>`;
+  if (t.where) return `<a class="card-link search-link" href="${Utils.searchLink(t)}" target="_blank" rel="noopener">🔍 Search "${Utils.esc(t.where)}"</a>`;
+  return '';
+}
+
+function renderCards(list) {
+  const grid = document.getElementById('card-grid');
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">🍵</div><p>No teas match your search or filter.</p><button class="btn btn-gold" onclick="toggleAddPanel()">＋ Add your first tea</button></div>`;
+    return;
+  }
+  grid.innerHTML = list.map(t => {
+    const reorder = t.status === 'tried' && t.qty !== '' && Number(t.qty) < 30;
+    const brewCount = (t.brews || []).length;
+    const tagsHtml = (t.tags || []).length
+      ? `<div class="card-tags tags-list">${t.tags.map(tag => `<span class="tag">${Utils.esc(tag)}</span>`).join('')}</div>`
+      : '';
+    return `
+    <div class="tea-card ${t.status === 'wishlist' ? 'card-wishlist' : ''}">
+      ${t.photo ? `<img class="card-photo" src="${t.photo}" alt="${Utils.esc(t.name)}">` : ''}
+      <div class="card-body">
+        <div class="card-top">
+          <div class="card-badges">
+            <span class="badge ${Utils.badgeClass(t.type)}">${t.type}</span>
+            <span class="status-badge ${Utils.statusClass(t.status)}">${Utils.statusLabel(t.status)}</span>
+          </div>
+          <div class="card-menu">
+            <button class="card-menu-btn" onclick="openEdit(${t.id})" title="Edit">✎</button>
+            <button class="card-menu-btn" onclick="openBrew(${t.id})" title="Brew log">☕</button>
+            <button class="card-menu-btn danger" onclick="deleteTea(${t.id})" title="Delete">✕</button>
+          </div>
+        </div>
+        <div class="card-name">${Utils.esc(t.name)}</div>
+        <div class="card-origin">${Utils.esc(t.origin)}${t.temp ? ' · ' + t.temp + '°F' : ''}${t.steep ? ' · ' + t.steep : ''}</div>
+        ${t.rating ? `<div class="card-stars">${Utils.starsHtml(t.rating)}</div>` : ''}
+        ${t.notes ? `<div class="card-notes">${Utils.esc(t.notes)}</div>` : ''}
+        <div class="card-footer">
+          ${tagsHtml}
+          ${t.qty !== '' ? `<div class="card-meta">📦 ${t.qty} ${t.unit}${t.price ? ' · $' + Number(t.price).toFixed(2) : ''}</div>` : ''}
+          ${sourceLink(t)}
+          ${reorder ? `<div class="reorder-warning">⚑ Low stock — consider reordering</div>` : ''}
+          ${brewCount ? `<div class="brew-session-count">☕ ${brewCount} brew session${brewCount > 1 ? 's' : ''}</div>` : ''}
+          <button class="brew-log-trigger" onclick="openBrew(${t.id})">+ Log brew</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTable(list) {
+  const tbody = document.getElementById('tbl-body');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="14" style="text-align:center;padding:3rem;color:var(--ink-soft);font-style:italic;">No teas match your filter.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(t => {
+    const src = t.url
+      ? `<a href="${Utils.esc(t.url)}" target="_blank" style="color:var(--gold);font-size:0.76rem;">↗ ${Utils.esc(t.where || 'Link')}</a>`
+      : t.where
+        ? `<a href="${Utils.searchLink(t)}" target="_blank" style="color:var(--ink-faint);font-size:0.76rem;">🔍 ${Utils.esc(t.where)}</a>`
+        : '—';
+    const tagsHtml = (t.tags || []).map(tag => `<span class="tag">${Utils.esc(tag)}</span>`).join('');
+    return `
+    <tr class="row-${t.status}">
+      <td><strong>${Utils.esc(t.name)}</strong></td>
+      <td><span class="badge ${Utils.badgeClass(t.type)}">${t.type}</span></td>
+      <td>${Utils.esc(t.origin)}</td>
+      <td><span class="status-badge ${Utils.statusClass(t.status)}">${Utils.statusLabel(t.status)}</span></td>
+      <td>${t.qty !== '' ? t.qty + ' ' + t.unit : '—'}</td>
+      <td>${t.rating ? Utils.starsHtml(t.rating) : '—'}</td>
+      <td>${t.temp ? t.temp + '°F' : '—'}</td>
+      <td>${t.steep || '—'}</td>
+      <td class="td-notes">${Utils.esc(t.notes) || '—'}</td>
+      <td><div class="tags-list">${tagsHtml || '—'}</div></td>
+      <td>${src}</td>
+      <td>${t.price !== '' ? '$' + Number(t.price).toFixed(2) : '—'}</td>
+      <td>${Utils.formatDate(t.added)}</td>
+      <td style="white-space:nowrap;">
+        <button class="tbl-btn" onclick="openEdit(${t.id})" title="Edit">✎</button>
+        <button class="tbl-btn" onclick="openBrew(${t.id})" title="Brew log">☕</button>
+        <button class="tbl-btn danger" onclick="deleteTea(${t.id})" title="Delete">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── ADD / EDIT FORM ───────────────────────────────────────────────────────────
+function toggleAddPanel() {
+  const panel = document.getElementById('add-panel');
+  if (panel.classList.contains('open')) cancelForm();
+  else {
+    editingId = null;
+    document.getElementById('panel-title').textContent = 'Add a Tea';
+    document.getElementById('form-submit').textContent = 'Add to Journal';
+    panel.classList.add('open');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function cancelForm() {
+  document.getElementById('add-panel').classList.remove('open');
+  resetForm();
+  editingId = null;
+}
+
+function resetForm() {
+  ['f-name','f-origin','f-qty','f-temp','f-steep','f-notes','f-where','f-url','f-price'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('f-type').value = 'Green';
+  document.getElementById('f-status').value = 'inventory';
+  document.getElementById('f-unit').value = 'g';
+  formStars?.setValue(0);
+  formTags?.setTags([]);
+  formPhoto?.setData('');
+}
+
+function submitForm() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('f-name').focus(); UI.toast('Tea name is required', 'error'); return; }
+
+  const tea = {
+    name,
+    type:   document.getElementById('f-type').value,
+    origin: document.getElementById('f-origin').value.trim() || '—',
+    status: document.getElementById('f-status').value,
+    qty:    parseFloat(document.getElementById('f-qty').value) || '',
+    unit:   document.getElementById('f-unit').value,
+    temp:   document.getElementById('f-temp').value.trim(),
+    steep:  document.getElementById('f-steep').value.trim(),
+    notes:  document.getElementById('f-notes').value.trim(),
+    where:  document.getElementById('f-where').value.trim(),
+    url:    document.getElementById('f-url').value.trim(),
+    price:  parseFloat(document.getElementById('f-price').value) || '',
+    rating: formStars?.getValue() || 0,
+    tags:   formTags?.getTags() || [],
+    photo:  formPhoto?.getData() || '',
+  };
+
+  if (editingId) {
+    Store.update(editingId, tea);
+    UI.toast(`"${name}" updated ✓`, 'success');
+  } else {
+    Store.add(tea);
+    UI.toast(`"${name}" added to journal ✓`, 'success');
+  }
+
+  cancelForm();
+  render();
+}
+
+function runAI() {
+  const name = document.getElementById('f-name').value.trim();
+  const type = document.getElementById('f-type').value;
+  if (!name) { document.getElementById('f-name').focus(); UI.toast('Enter a tea name first', 'error'); return; }
+  UI.aiSuggest({
+    name, type, btnId: 'ai-btn',
+    onResult: (json) => {
+      const set = (id, val) => { if (val && !document.getElementById(id).value) document.getElementById(id).value = val; };
+      set('f-temp', json.temp_f);
+      set('f-steep', json.steep_time);
+      set('f-notes', json.notes);
+      set('f-origin', json.origin);
+      if (json.tags && formTags) {
+        const cur = formTags.getTags();
+        const merged = [...new Set([...cur, ...(json.tags || [])])];
+        formTags.setTags(merged);
+      }
+    }
+  });
+}
+
+// ── EDIT MODAL ────────────────────────────────────────────────────────────────
+function openEdit(id) {
+  const t = Store.getById(id);
+  if (!t) return;
+  editingId = id;
+
+  const sv = (eid, val) => { const el = document.getElementById(eid); if (el) el.value = val || ''; };
+  sv('e-name', t.name);
+  sv('e-origin', t.origin === '—' ? '' : t.origin);
+  document.getElementById('e-type').value   = t.type;
+  document.getElementById('e-status').value = t.status;
+  sv('e-qty', t.qty); 
+  document.getElementById('e-unit').value = t.unit || 'g';
+  sv('e-temp', t.temp); sv('e-steep', t.steep);
+  sv('e-where', t.where); sv('e-url', t.url);
+  sv('e-price', t.price); sv('e-notes', t.notes);
+
+  // Reinit components each time
+  editStars = UI.starsInput('e-stars-wrap', t.rating || 0);
+  editTags  = UI.tagInput('e-tags-wrap', t.tags || []);
+
+  UI.openModal('edit-overlay');
+}
+
+function saveEdit() {
+  const t = Store.getById(editingId);
+  if (!t) return;
+  const gv = id => (document.getElementById(id)?.value || '');
+  Store.update(editingId, {
+    name:   gv('e-name').trim() || t.name,
+    type:   gv('e-type'),
+    origin: gv('e-origin').trim() || '—',
+    status: gv('e-status'),
+    qty:    parseFloat(gv('e-qty')) || '',
+    unit:   gv('e-unit'),
+    temp:   gv('e-temp').trim(),
+    steep:  gv('e-steep').trim(),
+    where:  gv('e-where').trim(),
+    url:    gv('e-url').trim(),
+    price:  parseFloat(gv('e-price')) || '',
+    notes:  gv('e-notes').trim(),
+    rating: editStars?.getValue() || 0,
+    tags:   editTags?.getTags() || [],
+  });
+  UI.toast('Changes saved ✓', 'success');
+  UI.closeModal('edit-overlay');
+  editingId = null;
+  render();
+}
+
+function deleteTea(id) {
+  const t = Store.getById(id);
+  if (!t) return;
+  if (!confirm(`Remove "${t.name}" from your journal?`)) return;
+  Store.remove(id);
+  UI.toast(`"${t.name}" removed`);
+  render();
+}
+
+// ── BREW LOG ──────────────────────────────────────────────────────────────────
+function openBrew(id) {
+  brewTeaId = id;
+  const t = Store.getById(id);
+  document.getElementById('brew-modal-title').textContent = `Brew Log — ${t.name}`;
+  document.getElementById('bl-date').value  = new Date().toISOString().slice(0, 10);
+  document.getElementById('bl-temp').value  = t.temp || '';
+  document.getElementById('bl-steep').value = t.steep || '';
+  document.getElementById('bl-notes').value = '';
+  brewStars = UI.starsInput('bl-stars-wrap', 0);
+  renderBrewEntries(t);
+  UI.openModal('brew-overlay');
+}
+
+function renderBrewEntries(t) {
+  const container = document.getElementById('brew-entries-list');
+  const brews = (t.brews || []).slice().reverse();
+  if (!brews.length) {
+    container.innerHTML = '<p style="font-size:0.82rem;color:var(--ink-faint);font-style:italic;">No sessions logged yet.</p>';
+    return;
+  }
+  container.innerHTML = brews.map((b, ri) => {
+    const realIdx = t.brews.length - 1 - ri;
+    return `
+    <div class="brew-entry">
+      <div class="brew-entry-header">
+        <span class="brew-date">${Utils.formatDate(b.date)}</span>
+        <button class="brew-delete" onclick="deleteBrewEntry(${b.id})">✕</button>
+      </div>
+      <div class="brew-meta">${b.temp ? b.temp + '°F' : ''} ${b.steep ? '· ' + b.steep : ''}</div>
+      ${b.rating ? `<div>${Utils.starsHtml(b.rating)}</div>` : ''}
+      ${b.notes ? `<div class="brew-notes-text">${Utils.esc(b.notes)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function submitBrewEntry() {
+  const t = Store.getById(brewTeaId);
+  if (!t) return;
+  Store.addBrew(brewTeaId, {
+    date:   document.getElementById('bl-date').value || new Date().toISOString().slice(0, 10),
+    temp:   document.getElementById('bl-temp').value,
+    steep:  document.getElementById('bl-steep').value,
+    notes:  document.getElementById('bl-notes').value.trim(),
+    rating: brewStars?.getValue() || 0,
+  });
+  document.getElementById('bl-notes').value = '';
+  brewStars = UI.starsInput('bl-stars-wrap', 0);
+  const updated = Store.getById(brewTeaId);
+  renderBrewEntries(updated);
+  UI.toast('Session logged ✓', 'success');
+  render();
+}
+
+function deleteBrewEntry(brewId) {
+  Store.removeBrew(brewTeaId, brewId);
+  const updated = Store.getById(brewTeaId);
+  renderBrewEntries(updated);
+  render();
+}
+
+// ── IMPORT ────────────────────────────────────────────────────────────────────
+function openImport() { UI.openModal('import-overlay'); }
+
+function handleImport(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error();
+      if (confirm(`Import ${data.length} teas? Existing entries won't be duplicated.`)) {
+        Store.importData(data);
+        UI.toast(`${data.length} teas imported ✓`, 'success');
+        UI.closeModal('import-overlay');
+        render();
+      }
+    } catch { UI.toast('Invalid backup file', 'error'); }
+  };
+  reader.readAsText(file);
+}
+</script>
+</body>
+</html>

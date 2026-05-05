@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tea Journal — Brew Log</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .brew-timeline { display: flex; flex-direction: column; gap: 12px; }
+    .brew-group-date {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--ink-faint);
+      padding: 8px 0 4px;
+      border-bottom: 1px solid var(--border);
+      margin-top: 8px;
+    }
+    .brew-row {
+      display: grid;
+      grid-template-columns: 180px 80px 80px 80px 1fr auto;
+      align-items: center;
+      gap: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 0.9rem 1.2rem;
+      transition: box-shadow 0.15s;
+    }
+    .brew-row:hover { box-shadow: var(--shadow); }
+    .brew-tea-name {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .brew-tea-type { font-size: 0.7rem; color: var(--ink-faint); margin-top: 2px; }
+    .brew-cell-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-faint); margin-bottom: 2px; }
+    .brew-cell-val { font-size: 0.85rem; color: var(--ink-mid); }
+    .brew-session-notes { font-size: 0.8rem; color: var(--ink-soft); font-style: italic; }
+    .brew-del-btn { background: none; border: none; cursor: pointer; color: var(--cream-ddd); font-size: 0.82rem; padding: 4px 6px; border-radius: 4px; }
+    .brew-del-btn:hover { color: var(--red); background: var(--red-l); }
+
+    .log-empty { text-align: center; padding: 5rem 2rem; color: var(--ink-soft); }
+    .log-empty .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.4; }
+
+    /* Quick add */
+    .quick-add {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.75rem;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    .quick-add.open { display: block; animation: panel-in 0.2s ease; }
+    @keyframes panel-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+    .quick-add h3 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 400; margin-bottom: 1.2rem; }
+    .tea-picker {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+      margin-bottom: 1.2rem;
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 10px;
+    }
+    .tea-picker-item {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: var(--ink-mid);
+      transition: all 0.15s;
+      background: var(--cream);
+    }
+    .tea-picker-item:hover { border-color: var(--gold); color: var(--ink); }
+    .tea-picker-item.selected { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+    .tea-picker-item .tp-type { font-size: 0.65rem; color: var(--ink-faint); margin-top: 1px; }
+    .tea-picker-item.selected .tp-type { color: rgba(250,245,238,0.55); }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="toolbar">
+    <div class="filter-chips" id="filter-chips">
+      <span class="chip active" data-filter="all">All Types</span>
+      <span class="chip" data-filter="Green">Green</span>
+      <span class="chip" data-filter="Black">Black</span>
+      <span class="chip" data-filter="White">White</span>
+      <span class="chip" data-filter="Oolong">Oolong</span>
+      <span class="chip" data-filter="Herbal">Herbal</span>
+      <span class="chip" data-filter="Pu-erh">Pu-erh</span>
+    </div>
+    <div class="toolbar-right">
+      <div class="search-box">
+        <span class="icon">⌕</span>
+        <input type="text" id="search-input" placeholder="Search teas…" oninput="render()">
+      </div>
+      <select class="sort-select" id="sort-select" onchange="render()">
+        <option value="date-desc">Most recent first</option>
+        <option value="date-asc">Oldest first</option>
+        <option value="rating-desc">Highest rated</option>
+        <option value="tea-asc">Tea name A–Z</option>
+      </select>
+      <button class="btn btn-gold" onclick="toggleQuickAdd()">☕ Log a Brew</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <!-- Quick add panel -->
+    <div class="quick-add" id="quick-add">
+      <h3>Log a Brew Session</h3>
+      <p style="font-size:0.82rem;color:var(--ink-soft);margin-bottom:12px;">Pick a tea:</p>
+      <div class="tea-picker" id="tea-picker"></div>
+      <div class="form-grid form-grid-3" style="margin-bottom:12px;">
+        <div class="field"><label>Date</label><input type="date" id="qa-date"></div>
+        <div class="field"><label>Temp (°F)</label><input type="number" id="qa-temp" placeholder="175"></div>
+        <div class="field"><label>Steep Time</label><input id="qa-steep" placeholder="3 min"></div>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Notes</label>
+        <textarea id="qa-notes" style="min-height:60px;" placeholder="How was it this time?"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <label>Rating</label>
+        <div id="qa-stars-wrap"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn" onclick="toggleQuickAdd()">Cancel</button>
+        <button class="btn btn-sage" onclick="submitQuickBrew()">Log Session</button>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stat-grid" id="brew-stats" style="margin-bottom:1.5rem;"></div>
+
+    <!-- Timeline -->
+    <div class="brew-timeline" id="brew-timeline"></div>
+
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/layout.js"></script>
+<script>
+Layout.init();
+
+let typeFilter = 'all';
+let selectedTeaId = null;
+let qaStars;
+
+window.addEventListener('DOMContentLoaded', () => {
+  qaStars = UI.starsInput('qa-stars-wrap', 0);
+  document.getElementById('qa-date').value = new Date().toISOString().slice(0, 10);
+
+  document.getElementById('filter-chips').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    typeFilter = chip.dataset.filter;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    render();
+  });
+
+  render();
+});
+
+// ── QUICK ADD ─────────────────────────────────────────────────────────────────
+function toggleQuickAdd() {
+  const panel = document.getElementById('quick-add');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    renderTeaPicker();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function renderTeaPicker() {
+  const teas = Store.getAll().filter(t => t.status !== 'wishlist');
+  const picker = document.getElementById('tea-picker');
+  picker.innerHTML = teas.map(t => `
+    <div class="tea-picker-item ${selectedTeaId === t.id ? 'selected' : ''}" onclick="selectTea(${t.id}, this, ${t.temp || ''}, '${(t.steep||'').replace(/'/g,"\\'")}')">
+      <div>${Utils.esc(t.name)}</div>
+      <div class="tp-type">${t.type}</div>
+    </div>
+  `).join('') || '<p style="color:var(--ink-faint);font-size:0.82rem;">No teas in inventory. Add some first.</p>';
+}
+
+function selectTea(id, el, temp, steep) {
+  selectedTeaId = id;
+  document.querySelectorAll('.tea-picker-item').forEach(el => el.classList.remove('selected'));
+  el.classList.add('selected');
+  if (temp && !document.getElementById('qa-temp').value) document.getElementById('qa-temp').value = temp;
+  if (steep && !document.getElementById('qa-steep').value) document.getElementById('qa-steep').value = steep;
+}
+
+function submitQuickBrew() {
+  if (!selectedTeaId) { UI.toast('Select a tea first', 'error'); return; }
+  Store.addBrew(selectedTeaId, {
+    date:   document.getElementById('qa-date').value || new Date().toISOString().slice(0, 10),
+    temp:   document.getElementById('qa-temp').value,
+    steep:  document.getElementById('qa-steep').value,
+    notes:  document.getElementById('qa-notes').value.trim(),
+    rating: qaStars?.getValue() || 0,
+  });
+  UI.toast('Session logged ✓', 'success');
+  document.getElementById('quick-add').classList.remove('open');
+  document.getElementById('qa-notes').value = '';
+  qaStars = UI.starsInput('qa-stars-wrap', 0);
+  selectedTeaId = null;
+  render();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render() {
+  const q    = document.getElementById('search-input').value.trim().toLowerCase();
+  const sort = document.getElementById('sort-select').value;
+
+  // Gather all brew sessions with tea context
+  const allBrews = [];
+  Store.getAll().forEach(t => {
+    (t.brews || []).forEach(b => {
+      if (typeFilter !== 'all' && t.type !== typeFilter) return;
+      if (q && !t.name.toLowerCase().includes(q) && !(b.notes||'').toLowerCase().includes(q)) return;
+      allBrews.push({ brew: b, tea: t });
+    });
+  });
+
+  // Sort
+  allBrews.sort((a, b) => {
+    if (sort === 'date-asc')    return (a.brew.date||'').localeCompare(b.brew.date||'');
+    if (sort === 'rating-desc') return (b.brew.rating||0) - (a.brew.rating||0);
+    if (sort === 'tea-asc')     return a.tea.name.localeCompare(b.tea.name);
+    return (b.brew.date||'').localeCompare(a.brew.date||''); // newest
+  });
+
+  renderStats(allBrews);
+  renderTimeline(allBrews);
+}
+
+function renderStats(brews) {
+  const container = document.getElementById('brew-stats');
+  const rated = brews.filter(b => b.brew.rating > 0);
+  const avg = rated.length ? (rated.reduce((s, b) => s + b.brew.rating, 0) / rated.length).toFixed(1) : '—';
+  const uniqueTeas = new Set(brews.map(b => b.tea.id)).size;
+  container.innerHTML = [
+    { n: brews.length, l: 'Total Sessions' },
+    { n: uniqueTeas,   l: 'Unique Teas' },
+    { n: avg,          l: 'Avg Session Rating' },
+  ].map(s => `
+    <div class="stat-card">
+      <div class="stat-card-num">${s.n}</div>
+      <div class="stat-card-label">${s.l}</div>
+    </div>
+  `).join('');
+}
+
+function renderTimeline(brews) {
+  const container = document.getElementById('brew-timeline');
+  if (!brews.length) {
+    container.innerHTML = `
+      <div class="log-empty">
+        <div class="empty-icon">☕</div>
+        <p>No brew sessions yet. Log your first one!</p>
+        <button class="btn btn-gold" onclick="toggleQuickAdd()">☕ Log a Brew</button>
+      </div>`;
+    return;
+  }
+
+  // Group by date when sorting by date
+  const sort = document.getElementById('sort-select').value;
+  if (sort === 'date-desc' || sort === 'date-asc') {
+    const groups = {};
+    brews.forEach(item => {
+      const d = item.brew.date || 'Unknown date';
+      if (!groups[d]) groups[d] = [];
+      groups[d].push(item);
+    });
+    const sortedDates = Object.keys(groups).sort((a,b) => sort === 'date-asc' ? a.localeCompare(b) : b.localeCompare(a));
+    container.innerHTML = sortedDates.map(date => `
+      <div class="brew-group-date">${Utils.formatDate(date)}</div>
+      ${groups[date].map(item => brewRowHtml(item)).join('')}
+    `).join('');
+  } else {
+    container.innerHTML = brews.map(item => brewRowHtml(item)).join('');
+  }
+}
+
+function brewRowHtml({ brew, tea }) {
+  return `
+  <div class="brew-row">
+    <div>
+      <div class="brew-tea-name">${Utils.esc(tea.name)}</div>
+      <div class="brew-tea-type"><span class="badge ${Utils.badgeClass(tea.type)}">${tea.type}</span></div>
+    </div>
+    <div>
+      <div class="brew-cell-label">Temp</div>
+      <div class="brew-cell-val">${brew.temp ? brew.temp + '°F' : '—'}</div>
+    </div>
+    <div>
+      <div class="brew-cell-label">Steep</div>
+      <div class="brew-cell-val">${brew.steep || '—'}</div>
+    </div>
+    <div>
+      <div class="brew-cell-label">Rating</div>
+      <div class="brew-cell-val">${brew.rating ? Utils.starsHtml(brew.rating) : '—'}</div>
+    </div>
+    <div class="brew-session-notes">${Utils.esc(brew.notes) || '<span style="color:var(--cream-ddd);">No notes</span>'}</div>
+    <button class="brew-del-btn" onclick="deleteBrew(${tea.id}, ${brew.id})" title="Delete session">✕</button>
+  </div>`;
+}
+
+function deleteBrew(teaId, brewId) {
+  if (!confirm('Delete this brew session?')) return;
+  Store.removeBrew(teaId, brewId);
+  UI.toast('Session removed');
+  render();
+}
+</script>
+</body>
+</html>
