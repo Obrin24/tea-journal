@@ -8,7 +8,6 @@ A beautiful, fully client-side tea collection tracker. No backend, no database, 
 - **Brew Log** — Log multiple sessions per tea with temp, steep time, notes, and ratings
 - **Stats** — Visual breakdown of your collection by type, rating distribution, top teas, tag cloud, reorder alerts
 - **Share page** — Customisable read-only view, print to PDF, export CSV/JSON, copy as text
-- **AI suggestions** — Auto-fill brew temp, steep time, tasting notes, and tags using Claude AI
 - **Photos** — Add photos of your tins/packaging
 - **Tags** — Freeform labels (morning, caffeine-free, gift, etc.)
 - **Wishlist** — Track teas you want to try before you own them
