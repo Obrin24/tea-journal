@@ -183,34 +183,6 @@ const UI = (() => {
     if (el('nav-wish'))  el('nav-wish').textContent = s.wishlist;
   }
 
-  // ── AI SUGGEST ─────────────────────────────────────────────────────────────
-  async function aiSuggest({ name, type, onResult, btnId }) {
-    if (!name) return;
-    const btn = btnId ? document.getElementById(btnId) : null;
-    if (btn) { btn.classList.add('loading'); btn.disabled = true; }
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          system: 'You are a tea sommelier. Respond ONLY with a raw JSON object — no markdown, no explanation, no code fences. Keys: temp_f (integer, brewing temperature), steep_time (string e.g. "3 min"), notes (string, 1 sentence of typical tasting notes for this specific tea), origin (string, typical growing region if not already known), tags (array of 1-3 strings from: morning, afternoon, evening, caffeine-free, high-caffeine, light, strong, floral, earthy, sweet, smoky, gift, seasonal). Return null for unknown fields.',
-          messages: [{ role: 'user', content: `Tea: "${name}", Type: ${type}` }]
-        })
-      });
-      const data = await res.json();
-      const text = (data.content || []).map(c => c.text || '').join('');
-      const json = JSON.parse(text.replace(/```json|```/g, '').trim());
-      if (onResult) onResult(json);
-      toast('AI suggestions applied ✦', 'success');
-    } catch (e) {
-      toast('AI suggestion unavailable — fill in manually', 'error');
-    } finally {
-      if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
-    }
-  }
-
   // ── EXPORT ─────────────────────────────────────────────────────────────────
   function exportCSV() {
     const teas = Store.getAll();
