@@ -211,5 +211,5 @@ const UI = (() => {
     a.click();
   }
 
-  return { toast, openModal, closeModal, closeAllModals, starsInput, tagInput, photoUpload, setActiveNav, updateNavStats, aiSuggest, exportCSV, exportJSON };
+  return { toast, openModal, closeModal, closeAllModals, starsInput, tagInput, photoUpload, setActiveNav, updateNavStats, exportCSV, exportJSON };
 })();
