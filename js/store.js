@@ -1,5 +1,5 @@
 // ── TEA JOURNAL · STORE ───────────────────────────────────────────────────────
-// Single source of truth. All pages import this.
+// Single source of truth.
 
 const STORE_KEY = 'tea_journal_v3';
 
@@ -7,12 +7,17 @@ const Store = (() => {
   let teas = [];
   let listeners = [];
 
+  /**
+   * Initializes the store. 
+   * Attempts to load from LocalStorage first; if empty, it returns an empty array.
+   */
   function load() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
-      teas = raw ? JSON.parse(raw) : _defaults();
-    } catch {
-      teas = _defaults();
+      teas = raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      console.error("Failed to parse tea data", e);
+      teas = [];
     }
   }
 
@@ -29,7 +34,15 @@ const Store = (() => {
 
   function add(tea) {
     const id = teas.length ? Math.max(...teas.map(t => t.id)) + 1 : 1;
-    const full = { brews: [], photo: '', tags: [], url: '', ...tea, id, added: new Date().toISOString().slice(0, 10) };
+    const full = { 
+      brews: [], 
+      photo: '', 
+      tags: [], 
+      url: '', 
+      ...tea, 
+      id, 
+      added: new Date().toISOString().slice(0, 10) 
+    };
     teas.unshift(full);
     save();
     return full;
@@ -64,10 +77,16 @@ const Store = (() => {
     save();
   }
 
+  /**
+   * Merges imported data with current data.
+   * Checks for ID collisions to prevent duplicates.
+   */
   function importData(arr) {
     if (!Array.isArray(arr)) return false;
     const existingIds = new Set(teas.map(t => t.id));
-    arr.forEach(t => { if (!existingIds.has(t.id)) teas.push(t); });
+    arr.forEach(t => { 
+      if (!existingIds.has(t.id)) teas.push(t); 
+    });
     save();
     return true;
   }
@@ -92,26 +111,13 @@ const Store = (() => {
     };
   }
 
-  function _defaults() {
-    return [
-      { id:1, name:"Dragon Well (Longjing)", type:"Green",  origin:"Hangzhou, China",    qty:50,  unit:"g",    status:"tried",     rating:5, temp:175, steep:"2 min",  notes:"Toasty, nutty, sweet vegetal finish",   where:"Yunnan Sourcing",      url:"https://yunnansourcing.com", price:12, added:"2026-04-01", photo:"", tags:["morning","favourite"], brews:[{id:1001,date:"2026-04-03",temp:175,steep:"2 min",notes:"Perfect. Clean and nutty.",rating:5}] },
-      { id:2, name:"Darjeeling First Flush", type:"Black",  origin:"West Bengal, India", qty:100, unit:"g",    status:"tried",     rating:4, temp:200, steep:"3 min",  notes:"Muscatel grape, floral, light body",    where:"Harney & Sons",        url:"", price:18, added:"2026-03-15", photo:"", tags:["morning"], brews:[{id:1002,date:"2026-03-20",temp:200,steep:"3 min",notes:"Lovely muscatel character.",rating:4}] },
-      { id:3, name:"Silver Needle",           type:"White",  origin:"Fujian, China",       qty:30,  unit:"g",    status:"tried",     rating:5, temp:160, steep:"4 min",  notes:"Honeydew, delicate floral sweetness",  where:"Teavivre",             url:"https://teavivre.com", price:22, added:"2026-03-28", photo:"", tags:["afternoon","gift"], brews:[] },
-      { id:4, name:"Milk Oolong",             type:"Oolong", origin:"Taiwan",              qty:75,  unit:"g",    status:"tried",     rating:4, temp:185, steep:"3 min",  notes:"Creamy, buttery, light floral",         where:"Tea Forté",            url:"", price:16, added:"2026-02-10", photo:"", tags:["afternoon"], brews:[] },
-      { id:5, name:"Chamomile",               type:"Herbal", origin:"Egypt",               qty:40,  unit:"bags", status:"tried",     rating:4, temp:208, steep:"5 min",  notes:"Honey-sweet, calming, apple notes",     where:"Celestial Seasonings", url:"", price:5,  added:"2026-01-20", photo:"", tags:["evening","caffeine-free"], brews:[] },
-      { id:6, name:"Sheng Puerh 2018",        type:"Pu-erh", origin:"Yunnan, China",       qty:200, unit:"g",    status:"tried",     rating:3, temp:195, steep:"30 sec", notes:"Earthy, camphor, slightly bitter",      where:"White2Tea",            url:"https://white2tea.com", price:35, added:"2025-12-01", photo:"", tags:[], brews:[] },
-      { id:7, name:"Gyokuro",                 type:"Green",  origin:"Uji, Japan",          qty:20,  unit:"g",    status:"inventory", rating:0, temp:155, steep:"2 min",  notes:"",                                      where:"Ippodo Tea",           url:"", price:28, added:"2026-04-20", photo:"", tags:[], brews:[] },
-      { id:8, name:"Lapsang Souchong",        type:"Black",  origin:"Wuyi, China",         qty:80,  unit:"g",    status:"inventory", rating:0, temp:205, steep:"4 min",  notes:"",                                      where:"Adagio Teas",          url:"", price:9,  added:"2026-04-18", photo:"", tags:[], brews:[] },
-      { id:9, name:"Aged Tieguanyin",         type:"Oolong", origin:"Anxi, China",         qty:0,   unit:"g",    status:"wishlist",  rating:0, temp:0,   steep:"",       notes:"Heard great things about aged versions", where:"",                    url:"", price:0,  added:"2026-04-22", photo:"", tags:["want-to-try"], brews:[] },
-      { id:10,name:"Hojicha",                 type:"Green",  origin:"Kyoto, Japan",        qty:0,   unit:"g",    status:"wishlist",  rating:0, temp:0,   steep:"",       notes:"Roasted green tea — low caffeine",      where:"",                    url:"", price:0,  added:"2026-04-25", photo:"", tags:["caffeine-free","want-to-try"], brews:[] },
-    ];
-  }
-
+  // Load immediately on script execution
   load();
+
   return { getAll, getById, add, update, remove, addBrew, removeBrew, importData, stats, onChange, save, load };
 })();
 
-// Helpers used across pages
+// ── HELPERS ──────────────────────────────────────────────────────────────────
 const Utils = {
   esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
